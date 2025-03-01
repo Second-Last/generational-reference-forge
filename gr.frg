@@ -52,17 +52,21 @@ pred wellformed {
 pred init[s : State] {
 	all r : s.references | {
 		let a = r.alloc | {
+			// TODO: prove that rememberedGeneration is <= currentGeneration for
+			// all subsequent states
 			r.rememberedGeneration <= s.currentGeneration[a]
 		}
 	}
 }
 
+// In an implementation of GR, a `safeReference` check is performed before any
+// dereferencing of a pointer/reference (including `free`). Then,
+// if `safeReference` is violated, we raise a run-time error to prevent
+// accessing prohibited data (hence ensuring memory "safety").
 pred safeReference[r : GenerationalReference, s : State] {
-	r in s.references
-	// TODO: prove that this is unnecessary
+	// TODO: prove that this check is unnecessary
 	// s.currentlyInUse[r.alloc] = True
 	r.rememberedGeneration = s.currentGeneration[r.alloc]
-	// TODO: prove that rememberedGeneration is <= currentGeneration
 }
 
 // There are four operations we can perform:
@@ -72,7 +76,7 @@ pred safeReference[r : GenerationalReference, s : State] {
 //    allocation.
 // 4. A referenced is freed, marking the corresponding allocation as unused.
 
-pred copyReference[r : GenerationalReference, s1, s2 : State] {
+pred aliasReference[r : GenerationalReference, s1, s2 : State] {
 	// new reference
 	not r in s1.references
 	// the new reference is the only change we have
@@ -81,6 +85,7 @@ pred copyReference[r : GenerationalReference, s1, s2 : State] {
 	s1.currentlyInUse = s2.currentlyInUse
 	s1.currentGeneration = s2.currentGeneration
 
+	// `r1` is essentially the alias of an existing reference `r2`.
 	some r2 : s1.references | {
 		r2.alloc = r.alloc
 		r2.rememberedGeneration = r.rememberedGeneration
@@ -166,26 +171,12 @@ pred freeReference[r : GenerationalReference, s1, s2 : State] {
 }
 
 pred nextState[s1, s2 : State] {
-	// // allocations may be freed but are never removed
-	// all a : s1.allocations | a in s2.allocations
-	//
-	// // We can perfrom one of the three operations:
-	// // freeAllocate, newAllocate, or reAllocate
-	// some a : Allocation | {
-	// 	freeAllocate[a, s1, s2]
-	// 	or newAllocate[a, s1, s2]
-	// 	or reAllocate[a, s1, s2]
-	// }
 	some r : GenerationalReference | {
-		copyReference[r, s1, s2] or
+		aliasReference[r, s1, s2] or
 		allocateNewReference[r, s1, s2] or
 		allocateReuseReference[r, s1, s2] or
 		freeReference[r, s1, s2]
 	}
-}
-
-pred safeState[s : State] {
-	all r : s.references | safeReference[r, s]
 }
 
 pred traces {
@@ -199,6 +190,11 @@ pred traces {
 	}
 }
 
+// Ensure that there are actually traces that exist!
+assert traces is sat for exactly 3 State for {next is linear}
+assert traces is sat for exactly 4 State for {next is linear}
+
+// Two common memory-safety issues: double-free and use-after-free.
 pred doubleFree {
 	traces
 
@@ -215,19 +211,34 @@ pred useAfterFree {
 	some s1, s2 : State, r : GenerationalReference | {
 		reachable[s2, s1, next]
 
-		// `r` is okay to be referenced initially
-		safeReference[r, s1]
-		// then r is freed
+		// r is freed (implies r is safe to be dereferenced)
 		freeReference[r, s1, s1.next]
 		// now try to reference `r` again
 		safeReference[r, s2]
 	}
 }
 
-assert traces is sat for exactly 3 State for {next is linear}
-assert traces is sat for exactly 4 State for {next is linear}
+pred useAliasAfterFree {
+	traces
 
-// it is impossible to double-free under GR
+	some disj s1, s2 : State, r1, r2 : GenerationalReference | {
+		reachable[s2, s1, next]
+
+		// r2 is an alias of r1
+		r1.alloc = r2.alloc
+		r1.rememberedGeneration = r2.rememberedGeneration
+
+		// free r1
+		freeReference[r1, s1, s1.next]
+		// can we still dereference `r2`?
+		safeReference[r2, s2]
+	}
+}
+
+// Double-free under GR is a run-time error
 assert doubleFree is unsat for {next is linear}
-// dereferencing a reference after it's freed is prohibited
+// Dereferencing a reference after it's freed is a run-time error
 assert useAfterFree is unsat for {next is linear}
+// After we free a reference, dereferencing any of its aliases is also a run-time
+// error
+assert useAliasAfterFree is unsat for {next is linear}
