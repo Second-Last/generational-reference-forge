@@ -115,6 +115,8 @@ unsatisfiability checks:
      that valid execution traces exist with 3 states
    - `assert traces is sat for exactly 4 State for {next is linear}`: Extends
      validation to 4 states
+   - `example` tests in `gr_test.frg` to ensure the 4 memory operations are
+     correct.
 
 2. **Safety property verification**:
    - `assert doubleFree is unsat for {next is linear}`: Proves double-free is
