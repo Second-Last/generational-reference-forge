@@ -15,9 +15,9 @@ Before any dereference, the system checks if the reference's remembered
 generation matches the allocation's current generation. This prevents accessing
 freed or reused memory, as freeing increments the generation counter.
 
-My goal was to formally verify that GR prevents common memory safety bugs, as
-its simplicity made me skeptical of its robustness despite its conceptual
-elegance and ease of implementation.
+The goal was to formally verify that GR prevents common memory safety bugs, as
+its conceptual elegance and ease of implementation, when combined with the
+effectiveness it claims, seem too good to be true.
 
 ## Model Design and Visualization
 
@@ -34,7 +34,14 @@ The model supports 4 key operations:
 4. Freeing a reference (marking its allocation as unused and incrementing
    generation)
 
-I've written assertions to verify that GR prevents double-free and
+The last operation, `free`, was not covered in the GR article but remains an
+essential operation to model in order to test memory corruption bugs (that
+almost always involve `free`-ing references at the wrong time). This lack of
+specification caused me to ignore a key property (that reference to be freed
+must be safe to be dereferenced in the first place) and was the most
+time-consuming bug in this project.
+
+Assertions were written to verify that GR prevents double-free and
 use-after-free issues.
 As we've done multiple times in-class, this model uses linear (`is linear`)
 traces to represent program execution over time. Theoretically the proofs should
@@ -58,19 +65,9 @@ references and allocations, and the shown `GenerationalReference` and
 `Allocation` are both created in later states but are still displayed for
 unknown reasons.
 
-<!--To make matters worse, this is the following state, in which a new chunck of-->
-<!--memory is allocated and a reference is created pointing at it:-->
-<!---->
-<!--![State1](state1.png)-->
-<!---->
-<!--From the visualization it seems both `GenerationalReference2` and-->
-<!--`GenerationalReference3` are representing `Allocation3`, -->
-
-<!--This makes time projection fundamentally unusable because it thinks-->
-
-This is why the Table view became the most convenient and productive for me when
-debugging. I struggled to write a custom visualization because of the need to
-project over `State`.
+This is why the Table view became the most convenient and productive format when
+debugging. Efforts to write a custom visualization was abandoned because of the
+difficulty to take into account projecting over `State`.
 
 ## Signatures and Predicates
 

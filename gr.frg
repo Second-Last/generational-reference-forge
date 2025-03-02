@@ -64,8 +64,6 @@ pred init[s : State] {
 // if `safeReference` is violated, we raise a run-time error to prevent
 // accessing prohibited data (hence ensuring memory "safety").
 pred safeReference[r : GenerationalReference, s : State] {
-	// TODO: prove that this check is unnecessary
-	// s.currentlyInUse[r.alloc] = True
 	r.rememberedGeneration = s.currentGeneration[r.alloc]
 }
 
@@ -94,6 +92,7 @@ pred aliasReference[r : GenerationalReference, s1, s2 : State] {
 
 pred allocateNewReference[r : GenerationalReference, s1, s2 : State] {
 	let a = r.alloc | {
+		// set initial generation
 		r.rememberedGeneration = 0
 
 		// new reference
@@ -102,10 +101,11 @@ pred allocateNewReference[r : GenerationalReference, s1, s2 : State] {
 		// new allocation
 		s1.allocations + a = s2.allocations
 
+		// `a` doens't exist in s1
 		not a in s1.allocations
 		no s1.currentlyInUse[a]
 		no s1.currentGeneration[a]
-		// a exists in s2
+		// `a` exists in `s2`
 		a in s2.allocations
 		s2.currentlyInUse[a] = True
 		s2.currentGeneration[a] = 0
@@ -120,6 +120,7 @@ pred allocateNewReference[r : GenerationalReference, s1, s2 : State] {
 
 pred allocateReuseReference[r : GenerationalReference, s1, s2 : State] {
 	let a = r.alloc | {
+		// set initial generation
 		r.rememberedGeneration = s2.currentGeneration[a]
 
 		// new reference
@@ -129,13 +130,13 @@ pred allocateReuseReference[r : GenerationalReference, s1, s2 : State] {
 		a in s1.allocations
 		s1.allocations = s2.allocations
 
-		// `a` should be unused in s1
+		// `a` should be unused in `s1`
 		s1.currentlyInUse[a] = False
 		// update `a` in s2
 		s2.currentlyInUse[a] = True
 		s2.currentGeneration[a] = add[s1.currentGeneration[a], 1]
 
-		// currentlyInuse and currentGeneration remains the same except for `a`
+		// `currentlyInuse` and `currentGeneration` remains the same except for `a`
 		all a2 : Allocation | a != a2 => {
 			s1.currentlyInUse[a2] = s2.currentlyInUse[a2]
 			s1.currentGeneration[a2] = s2.currentGeneration[a2]
@@ -211,7 +212,7 @@ pred useAfterFree {
 	some s1, s2 : State, r : GenerationalReference | {
 		reachable[s2, s1, next]
 
-		// r is freed (implies r is safe to be dereferenced)
+		// `r` is freed (implies `r` is safe to be dereferenced)
 		freeReference[r, s1, s1.next]
 		// now try to reference `r` again
 		safeReference[r, s2]
@@ -224,13 +225,13 @@ pred useAliasAfterFree {
 	some disj s1, s2 : State, r1, r2 : GenerationalReference | {
 		reachable[s2, s1, next]
 
-		// r2 is an alias of r1
+		// `r2` is an alias of `r1`
 		r1.alloc = r2.alloc
 		r1.rememberedGeneration = r2.rememberedGeneration
 
-		// free r1
+		// free `r1`
 		freeReference[r1, s1, s1.next]
-		// can we still dereference `r2`?
+		// now try dereferencing `r2`
 		safeReference[r2, s2]
 	}
 }
