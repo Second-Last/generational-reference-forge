@@ -31,6 +31,36 @@
       "targets": [
         "*"
       ]
+    },
+    {
+      "targets": [
+        {
+          "type": "Int"
+        }
+      ],
+      "styles": {
+        "node": {
+          "stroke": "#ffffff"
+        },
+        "label": {
+          "fill": "#ffffff"
+        }
+      }
+    },
+    {
+      "targets": [
+        {
+          "type": "Bool"
+        }
+      ],
+      "styles": {
+        "node": {
+          "stroke": "#ffffff"
+        },
+        "label": {
+          "fill": "#ffffff"
+        }
+      }
     }
   ],
   "edges": [
@@ -60,14 +90,6 @@
     {
       "targets": [
         {
-          "relation": "GenerationalReference<:rememberedGeneration"
-        }
-      ],
-      "asAttribute": true
-    },
-    {
-      "targets": [
-        {
           "relation": "State<:currentlyInUse"
         }
       ],
@@ -76,9 +98,10 @@
     {
       "targets": [
         {
-          "relation": "State<:next"
+          "relation": "GenerationalReference<:rememberedGeneration"
         }
-      ]
+      ],
+      "asAttribute": true
     },
     {
       "targets": [
@@ -91,7 +114,8 @@
   ],
   "projections": [
     {
-      "type": "State"
+      "type": "State",
+      "time": true
     }
   ]
 }
