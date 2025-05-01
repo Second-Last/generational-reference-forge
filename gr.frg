@@ -1,6 +1,6 @@
 #lang forge
 
-option run_sterling on
+option run_sterling off
 
 abstract sig Bool {}
 one sig True, False extends Bool {}
@@ -192,8 +192,8 @@ pred traces {
 }
 
 // Ensure that there are actually traces that exist!
-assert traces is sat for exactly 3 State for {next is linear}
-assert traces is sat for exactly 4 State for {next is linear}
+hasGrTraceWithLen3: assert traces is sat for exactly 3 State for {next is linear}
+hasGrTraceWithLen4: assert traces is sat for exactly 4 State for {next is linear}
 
 // Two common memory-safety issues: double-free and use-after-free.
 pred doubleFree {
@@ -237,9 +237,9 @@ pred useAliasAfterFree {
 }
 
 // Double-free under GR is a run-time error
-assert doubleFree is unsat for {next is linear}
+noDoubleFreeInGr: assert doubleFree is unsat for {next is linear}
 // Dereferencing a reference after it's freed is a run-time error
-assert useAfterFree is unsat for {next is linear}
+noUseAfterFreeInGr: assert useAfterFree is unsat for {next is linear}
 // After we free a reference, dereferencing any of its aliases is also a run-time
 // error
-assert useAliasAfterFree is unsat for {next is linear}
+noUseAliasAfterFreeInGr: assert useAliasAfterFree is unsat for {next is linear}
