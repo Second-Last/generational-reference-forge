@@ -25,6 +25,13 @@ sig State {
 	liveOwners: set Owner
 }
 
+// pred ownerNoReuse[o : Owner, s : State] {
+// 	// o not in s.liveOwners
+// 	all disj s0, s1 : State | (reachable[s1, s0, next] and reachable[s, s1, next]) => {
+// 		o in s0.liveOwners => o in s1.liveOwners
+// 	}
+// }
+
 pred wellformed {
 	all s : State | {
 		all ref : s.references | {
@@ -50,6 +57,13 @@ pred wellformed {
 		}
 		// A owner can own nothing (e.g. the start of a stack frame)
 		all o : Owner | some ~(s.ownedBy)[o] => o in s.liveOwners
+	}
+
+	// Owner cannot be reuse once removed
+	all o : Owner
+		| all disj s1, s2, s3 : State
+		| (reachable[s2, s1, next] and reachable[s3, s2, next]) => {
+		(o in s1.liveOwners and o not in s2.liveOwners) => o not in s3.liveOwners
 	}
 
 	// Remove clutter:
@@ -98,6 +112,8 @@ pred aliasReference[r : GenerationalReference, s1, s2 : State] {
 	s1.allocations = s2.allocations
 	s1.currentlyInUse = s2.currentlyInUse
 	s1.currentGeneration = s2.currentGeneration
+	s1.ownedBy = s2.ownedBy
+	s1.liveOwners = s2.liveOwners
 
 	// `r1` is essentially the alias of an existing reference `r2`.
 	some r2 : s1.references | {
@@ -126,13 +142,15 @@ pred allocateNew[r : GenerationalReference, o : Owner, s1, s2 : State] {
 		s2.currentlyInUse[a] = True
 		s2.currentGeneration[a] = 0
 
-		// a new owner is assigned to `a`
+		// a live owner is assigned to `a`
 		s2.ownedBy[a] = o
+		s1.liveOwners + o = s2.liveOwners
 
 		// currentlyInuse and currentGeneration remains the same except for `a`
 		all a2 : Allocation | a != a2 => {
 			s1.currentlyInUse[a2] = s2.currentlyInUse[a2]
 			s1.currentGeneration[a2] = s2.currentGeneration[a2]
+			s1.ownedBy[a2] = s2.ownedBy[a2]
 		}
 	}
 }
@@ -149,8 +167,9 @@ pred allocateReuse[r : GenerationalReference, o : Owner, s1, s2 : State] {
 		a in s1.allocations
 		s1.allocations = s2.allocations
 
-		// a new owner is assigned to `a`
+		// a live owner is assigned to `a`
 		s2.ownedBy[a] = o
+		s1.liveOwners + o = s2.liveOwners
 
 		// `a` should be unused in `s1`
 		s1.currentlyInUse[a] = False
@@ -162,6 +181,7 @@ pred allocateReuse[r : GenerationalReference, o : Owner, s1, s2 : State] {
 		all a2 : Allocation | a != a2 => {
 			s1.currentlyInUse[a2] = s2.currentlyInUse[a2]
 			s1.currentGeneration[a2] = s2.currentGeneration[a2]
+			s1.ownedBy[a2] = s2.ownedBy[a2]
 		}
 	}
 }
@@ -217,6 +237,7 @@ pred allocateReuse[r : GenerationalReference, o : Owner, s1, s2 : State] {
 
 // Only adds a new `Owner` (e.g. a new stack frame), nothing else changes.
 pred newOwner[o : Owner, s1, s2 : State] {
+	// Owner must be new
 	o not in s1.liveOwners
 	o in s2.liveOwners
 
@@ -331,13 +352,13 @@ hasGrTraceWithAllocAndRemove: assert {
 hasGrTraceWithAllocReuseAndRemove: assert {
 	traces
 	#GenerationalReference = 2
-	#Owner = 1
+	#Owner = 2
 	#Allocation = 1
-	some s : State, r1, r2 : GenerationalReference, o : Owner | {
-		allocateNew[r1, o, s, s.next]
-		removeOwner[o, s.next, s.next.next]
-		allocateReuse[r2, o, s.next.next, s.next.next.next]
-		removeOwner[o, s.next.next.next, s.next.next.next.next]
+	some s : State, r1, r2 : GenerationalReference, o1, o2 : Owner | {
+		allocateNew[r1, o1, s, s.next]
+		removeOwner[o1, s.next, s.next.next]
+		allocateReuse[r2, o2, s.next.next, s.next.next.next]
+		removeOwner[o2, s.next.next.next, s.next.next.next.next]
 	}
 } is sat for exactly 5 State for {next is linear}
 
@@ -398,3 +419,34 @@ noUseAfterFreeInGr: assert useAfterFree is unsat for {next is linear}
 // error
 noUseAliasAfterFreeInGr: assert useAliasAfterFree is unsat for {next is linear}
 
+// Now let's prove that single ownership allows us to skip generation checks.
+
+liveOwnerAlwaysSafe: assert {
+	traces
+
+	some s0, s : State, r : GenerationalReference, o : Owner | {
+		reachable[s, s0, next]
+
+		// This makes sure we're getting the owner to the reference.
+		// In the implementation, the programming language's semantic allows the
+		// owner to be tracked so the implementation doesn't need to do this
+		// sort of "time travel" to get the owner of the reference when it was
+		// created.
+		some r0 : GenerationalReference | {
+			// Handle the case that `r` is an alias.
+			r.alloc = r0.alloc
+			r.rememberedGeneration = r0.rememberedGeneration
+
+			(allocateNew[r0, o, s0, s0.next] or allocateReuse[r0, o, s0, s0.next])
+		}
+
+		// the reference's allocation is currently owned by a live owner.
+		// In practice, this usually means we're accessing a field directly
+		// from a pointer that owns the object. In other words, `r` is `o` in
+		// the programming language.
+		o in s.liveOwners
+
+		// however, the reference is not safe to access!
+		not safeReference[r, s]
+	}
+} is unsat for {next is linear}
