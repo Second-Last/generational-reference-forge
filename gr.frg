@@ -294,16 +294,27 @@ hasGrTraceWithLen4: assert traces is sat for exactly 4 State for {next is linear
 // Make sure we can add an empty owner by e.g. new stack frame
 hasGrTraceWithNewEmptyOwner: assert {
 	traces
-	some s : State | some o : Owner | newOwner[o, s, s.next]
+	some s : State, o : Owner | newOwner[o, s, s.next]
 } is sat for 4 State for {next is linear}
+
 // Make sure we can add an owner and remove it immediately
 hasGrTraceWithRemoveEmptyOwner: assert {
 	traces
-	some s : State | some o : Owner | {
+	some s : State, o : Owner | {
 		newOwner[o, s, s.next]
 		removeOwner[o, s.next, s.next.next]
 	}
 } is sat for 4 State for {next is linear}
+
+// Make sure an empty owner can own a new allocation (e.g. a stack variable)
+hasGrTraceWithEmptyOwnerOwnsAlloc: assert {
+	traces
+	some s : State, o : Owner, r : GenerationalReference {
+		newOwner[o, s, s.next]
+		allocateNew[r, o, s.next, s.next.next]
+	}
+} is sat for 3 State for {next is linear}
+
 // Make sure we can remove a owner that owns some allocation(s)
 hasGrTraceWithAllocAndRemove: assert {
 	traces
@@ -315,6 +326,7 @@ hasGrTraceWithAllocAndRemove: assert {
 		removeOwner[o, s.next, s.next.next]
 	}
 } is sat for exactly 3 State for {next is linear}
+
 // Make sure we can reuse allocation and then free it by removing its owner
 hasGrTraceWithAllocReuseAndRemove: assert {
 	traces
@@ -332,7 +344,7 @@ hasGrTraceWithAllocReuseAndRemove: assert {
 
 // Two common memory-safety issues: double-free and use-after-free.
 // Double-free is a subset of use-after-free because by "freeing" a
-// reference/allocation you're also using that reference/allocation.
+// reference/allocation you're also using that reference/allocation to free it.
 // Therefore, `doubleFree` is not needed and can be replaced by `useAfterFree`.
 // pred doubleFree {
 // 	traces
@@ -385,3 +397,4 @@ noUseAfterFreeInGr: assert useAfterFree is unsat for {next is linear}
 // After we free a reference, dereferencing any of its aliases is also a run-time
 // error
 noUseAliasAfterFreeInGr: assert useAliasAfterFree is unsat for {next is linear}
+
