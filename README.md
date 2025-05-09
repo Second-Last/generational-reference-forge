@@ -203,3 +203,13 @@ skip some "dumb" and obvious checks such as for variables on the
 current
 stack
 frame.
+
+## Improvements from Curiosity Modeling
+
+- Verified the safety of the optimization under single-ownership.
+- Verified that the original safety guarantees of GR still hold under
+  single-ownership.
+- The entire model had to be adapted to account for the single-ownership model.
+  This required changes to all 5 operations and `wellformed` as well as
+  some very nasty
+  debug that were fortunately salvage-able thanks to the "Evaluator".
