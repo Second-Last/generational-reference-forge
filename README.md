@@ -133,16 +133,17 @@ first place.
 ## Signatures and Predicates
 
 ### Signatures:
-- `Bool`: Simple boolean type with `True` and `False` values
-- `Allocation`: Represents a memory allocation
+- `Bool`: Simple boolean type with `True` and `False` values.
+- `Owner`: Represents an owner to a memory allocation.
+- `Allocation`: Represents a memory allocation.
 - `GenerationalReference`: A reference with a pointer to an allocation and a
-   remembered generation
+   remembered generation.
 - `State`: Represents system state with sets of allocations and references,
-   plus mappings for generations and usage status
+   plus mappings for generations and usage status.
 
 ### Key Predicates:
 - `wellformed`: Ensures the model's basic structural integrity (e.g.
-  references point to valid allocations)
+  references point to valid allocations).
 - `init`: Sets up a valid initial state. The main goal is to enforce the
   remembered generation of references to be lower than or equal to the current
   generation of allocations. `init` is effectively the "base case" for this
@@ -153,23 +154,22 @@ first place.
   doesn't satisfy `safeReference`, this means dereferencing it might cause
   memory corruption.
 - Predicates that represent our 4 memory operations:
-  - `aliasReference`: Creates a duplicate reference to an existing allocation
-  - `allocateNew`: Creates a new allocation and reference
+  - `aliasReference`: Creates a duplicate reference to an existing allocation.
+  - `allocateNew`: Creates a new allocation and reference.
   - `allocateReuse`: Reuses a freed allocation with an incremented
-    generation
+    generation.
   - `newOwner`: Creates a new owner that doesn't own any allocations.
   - `removeOwner`: Mark an owner is not "live", marks all allocations it owns
     as unused and increments their generations.
-- `nextState`: Connects states through valid operations
-- `traces`: Builds valid execution sequences
+- `nextState`: Connects states through valid operations.
+- `traces`: Builds valid execution sequences.
 - Unsafe patterns (for testing `unsat`):
   - `useAfterFree`: Attempts to use a reference after its allocation is freed
   - `useAliasAfterFree`: Attempts to use an alias after the original reference
     is freed
-- Optimization failures (for testing `unsat`):
+- Unsafe optimizations (for testing `unsat`):
   - `liveOwnerIsNotSafe`: Claims that a reference whose allocation's owner is
     still alive is not safe to dereference.
-
 
 ## Testing
 
@@ -181,8 +181,10 @@ unsatisfiability checks:
      that valid execution traces exist with 3 states.
    - `assert traces is sat for exactly 4 State for {next is linear}`: Extends
      validation to 4 states.
-   - Various checks such as `hasGrTraceWithRemoveEmptyOwner` to make sure traces
-     that use our operations actually exist and our proofs are not vacuously
+   - Various `sat` checks
+     such as `hasGrTraceWithRemoveEmptyOwner` to make sure traces
+     that use some or all of our 5 operations
+     actually exist and our proofs are not vacuously
      true!
 
 2. **Safety property verification**:
