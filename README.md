@@ -51,6 +51,16 @@ void hello(Spaceship& ship) {
 }
 ```
 
+## Improvements from Curiosity Modeling
+
+- Verified the safety of the optimization under single-ownership.
+- Verified that the original safety guarantees of GR still hold under
+  single-ownership.
+- The entire model had to be adapted to account for the single-ownership model.
+  This required changes to all 5 operations and `wellformed` as well as
+  some very nasty
+  debug that were fortunately salvage-able thanks to the "Evaluator".
+
 ## Model Design and Visualization
 
 The model represents a state-based system where each `State` contains:
@@ -85,7 +95,8 @@ easier.
 In the Sterling visualizer, after time projecting over `State`, the visualizer
 shows nodes that represent allocations and references, where references are
 connected to the allocations that they "reference".
-A `theme.json` preset is provided to ease understanding.
+A `theme.json` preset is provided to ease understanding but still, any
+trace with length greater than 4 is unlookable
 
 Unfortunately, the visualizaton can be confusing because nodes that represent
 `GenerationalReference` that are created later in time can appear to be
@@ -99,9 +110,19 @@ references and allocations, and the shown `GenerationalReference` and
 `Allocation` are both created in later states but are still displayed for
 unknown reasons.
 
-This is why the Table view became the most convenient and productive format when
+This is why the Table view, combined with the Evaluator,
+became the most convenient and productive format when
 debugging. Efforts to write a custom visualization was abandoned because of the
 difficulty to take into account projecting over `State`.
+
+Originally, there was an attempt to write a custom code-style visualizer that
+would output pseudocode fragments that correspond to the memory operations.
+Unfortunately, our model separates `Owner` and `GenerationalReference`, which
+in many cases are the same thing (e.g. owning pointer to something on the heap),
+so it was too hard to come up with an intuitive design. If our
+model generates an AST then this might be doable, but no formal study has been
+done on GR and it doesn't have any
+formal semantics, so designing an AST-based model may be very error-prone.
 
 ### Why Temporal Forge Was Not Used
 
@@ -204,12 +225,3 @@ current
 stack
 frame.
 
-## Improvements from Curiosity Modeling
-
-- Verified the safety of the optimization under single-ownership.
-- Verified that the original safety guarantees of GR still hold under
-  single-ownership.
-- The entire model had to be adapted to account for the single-ownership model.
-  This required changes to all 5 operations and `wellformed` as well as
-  some very nasty
-  debug that were fortunately salvage-able thanks to the "Evaluator".
