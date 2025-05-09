@@ -194,6 +194,20 @@ first place.
   - `liveOwnerIsNotSafe`: Claims that a reference whose allocation's owner is
     still alive is not safe to dereference.
 
+## Scope Assumptions & Limitations
+
+Since all programs boil down to memory operations, we believe there are actually
+very few simplifications made. Perhaps the most notable being the following:
+
+- Owners cannot "own" any other owners, allowing for a cascade-style
+  deallocation of multiple owners. This is probabily the only limitation this
+  system has.
+- There are no modifications in this system. However, we claim that this is more
+  of a design simplification to allow easier modeling and doesn't
+  reduce the effectiveness of our system, since any modification to a memory
+  location can be transformed to a free then reuse allocation that's attached
+  to the same owner, so nothing is changed.
+
 ## Testing
 
 The model was tested through a combination of satisfiability and
@@ -227,3 +241,6 @@ current
 stack
 frame.
 
+---
+
+Collaborators: Gavin Zhao
