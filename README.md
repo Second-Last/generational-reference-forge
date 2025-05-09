@@ -105,7 +105,8 @@ difficulty to take into account projecting over `State`.
 
 ### Why Temporal Forge Was Not Used
 
-Temporal Forge would make many things convenient. For example, the set
+Temporal Forge would make many things convenient and the code simpler.
+For example, the set
 `Owner` at the current time stamp would simply corresponds to all owners that
 are live right now, instead of always needing to say `s.liveOwners`.
 
@@ -124,8 +125,8 @@ Essentially, it's impossible to get a handle to a new instance that would be
 created at a future time stamp. `r.alloc not in Allocation` makes sense
 time-wise but
 is trivially false. Hence, if we were to use Temporal Forge, we still need
-inconvenient
-something like `State.allocations` which may not equal to the set of all
+something
+inconvenient like `State.allocations` which may not equal to the set of all
 `Allocation`s, defeating the purpose of using Temporal Forge in the
 first place.
 
