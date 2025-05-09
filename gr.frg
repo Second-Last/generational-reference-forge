@@ -1,6 +1,6 @@
 #lang forge
 
-option run_sterling on
+option run_sterling off
 
 abstract sig Bool {}
 one sig True, False extends Bool {}
@@ -24,13 +24,6 @@ sig State {
 	ownedBy: pfunc Allocation -> Owner,
 	liveOwners: set Owner
 }
-
-// pred ownerNoReuse[o : Owner, s : State] {
-// 	// o not in s.liveOwners
-// 	all disj s0, s1 : State | (reachable[s1, s0, next] and reachable[s, s1, next]) => {
-// 		o in s0.liveOwners => o in s1.liveOwners
-// 	}
-// }
 
 pred wellformed {
 	all s : State | {
@@ -97,12 +90,19 @@ pred safeReference[r : GenerationalReference, s : State] {
 	r.rememberedGeneration = s.currentGeneration[r.alloc]
 }
 
-// There are four operations we can perform:
+// There are five operations we can perform:
 // 1. A new, identical reference is created from an existing reference.
-// 2. A new reference is created by allocating a new allocation.
+// 2. A new reference is created by allocating a new allocation. The new
+//    allocation is attached to a may or may not new but live owner.
 // 3. A new reference is created by allocating from an existing, unused
-//    allocation.
-// 4. A referenced is freed, marking the corresponding allocation as unused.
+//    allocation. The allocation is attached to a may or may not new but 
+//    live owner.
+// 4. An owner is created that owns no allocations. In practice, this owner is
+//    usually a stack frame and this happens when that stack frame was just
+//    created.
+// 5. A owner is removed, freeing all allocations it owns. In practice, the
+//    owner is usually a stack frame or an owning reference to an object on the
+//    heap.
 
 pred aliasReference[r : GenerationalReference, s1, s2 : State] {
 	// new reference
@@ -185,55 +185,6 @@ pred allocateReuse[r : GenerationalReference, o : Owner, s1, s2 : State] {
 		}
 	}
 }
-
-// pred freeReference[r : GenerationalReference, s1, s2 : State] {
-// 	let a = r.alloc | {
-// 		// must be safe to dereference in the first place!
-// 		safeReference[r, s1]
-//
-// 		// existing reference and allocation
-// 		r in s1.references
-// 		a in s1.allocations
-//
-// 		// references are freed but are never deleted:
-// 		s1.references = s2.references
-// 		s1.allocations = s2.allocations
-//
-// 		// we also increments generation after freeing
-// 		s2.currentGeneration[a] = add[s1.currentGeneration[a], 1]
-// 		// `a` should be used in `s1`
-// 		s1.currentlyInUse[a] = True
-// 		// `a` should not be used in `s2`
-// 		s2.currentlyInUse[a] = False
-// 		// all other allocations remain the same
-// 		all a2 : Allocation | a != a2 => {
-// 			s1.currentGeneration[a2] = s2.currentGeneration[a2]
-// 			s1.currentlyInUse[a2] = s2.currentlyInUse[a2]
-// 		}
-// 	}
-// }
-
-// pred freeAllocation[a : Allocation, s1, s2 : State] {
-// 	// existing reference and allocation
-// 	// r in s1.references
-// 	a in s1.allocations
-//
-// 	// references are freed but are never deleted:
-// 	s1.references = s2.references
-// 	s1.allocations = s2.allocations
-//
-// 	// we also increments generation after freeing
-// 	s2.currentGeneration[a] = add[s1.currentGeneration[a], 1]
-// 	// `a` should be used in `s1`
-// 	s1.currentlyInUse[a] = True
-// 	// `a` should not be used in `s2`
-// 	s2.currentlyInUse[a] = False
-// 	// all other allocations remain the same
-// 	all a2 : Allocation | a != a2 => {
-// 		s1.currentGeneration[a2] = s2.currentGeneration[a2]
-// 		s1.currentlyInUse[a2] = s2.currentlyInUse[a2]
-// 	}
-// }
 
 // Only adds a new `Owner` (e.g. a new stack frame), nothing else changes.
 pred newOwner[o : Owner, s1, s2 : State] {
@@ -367,15 +318,6 @@ hasGrTraceWithAllocReuseAndRemove: assert {
 // Double-free is a subset of use-after-free because by "freeing" a
 // reference/allocation you're also using that reference/allocation to free it.
 // Therefore, `doubleFree` is not needed and can be replaced by `useAfterFree`.
-// pred doubleFree {
-// 	traces
-//
-// 	some s1, s2 : State, r : GenerationalReference | {
-// 		reachable[s2, s1, next]
-// 		freeReference[r, s1, s1.next]
-// 		freeReference[r, s2, s2.next]
-// 	}
-// }
 
 pred useAfterFree {
 	traces
@@ -411,8 +353,6 @@ pred useAliasAfterFree {
 	}
 }
 
-// // Double-free under GR is a run-time error
-// noDoubleFreeInGr: assert doubleFree is unsat for {next is linear}
 // Dereferencing a reference after it's freed is a run-time error
 noUseAfterFreeInGr: assert useAfterFree is unsat for {next is linear}
 // After we free a reference, dereferencing any of its aliases is also a run-time
@@ -421,7 +361,25 @@ noUseAliasAfterFreeInGr: assert useAliasAfterFree is unsat for {next is linear}
 
 // Now let's prove that single ownership allows us to skip generation checks.
 
-liveOwnerAlwaysSafe: assert {
+// If the owner of a reference's allocation is still "(a)live", then we can
+// de-reference the reference without the check.
+//
+// Judging from the code, it may seem like at runtime we need to find the owner
+// of the reference. In practice, the owner of any reference is track-able by
+// using a borrow checker or a single-ownership model. For example, the most
+// common use case
+// of this optimization is to skip checks when you access a field of an object
+// you just created:
+// ```cpp
+// int main() {
+//   Point* pt = new Point;
+//   std::cout << pt->x << std::endl; // clearly `pt` is safe to dereference
+// }
+// ```
+//
+// It should be obvious that in this case, we can track ownership
+// rather trivially at compile-time.
+pred liveOwnerIsNotSafe {
 	traces
 
 	some s0, s : State, r : GenerationalReference, o : Owner | {
@@ -430,8 +388,7 @@ liveOwnerAlwaysSafe: assert {
 		// This makes sure we're getting the owner to the reference.
 		// In the implementation, the programming language's semantic allows the
 		// owner to be tracked so the implementation doesn't need to do this
-		// sort of "time travel" to get the owner of the reference when it was
-		// created.
+		// sort of "time travel" at run-time to get the owner of the reference.
 		some r0 : GenerationalReference | {
 			// Handle the case that `r` is an alias.
 			r.alloc = r0.alloc
@@ -449,4 +406,6 @@ liveOwnerAlwaysSafe: assert {
 		// however, the reference is not safe to access!
 		not safeReference[r, s]
 	}
-} is unsat for {next is linear}
+}
+
+liveOwnerAlwaysSafe: assert liveOwnerIsNotSafe is unsat for {next is linear}
