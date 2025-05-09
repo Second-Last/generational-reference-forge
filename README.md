@@ -93,12 +93,14 @@ still be valid, but enforcing linearity makes visualization and debugging much
 easier.
 
 In the Sterling visualizer, after time projecting over `State`, the visualizer
-shows nodes that represent allocations and references, where references are
+shows nodes that represent allocations, references, and owners,
+where references are
 connected to the allocations that they "reference".
 A `theme.json` preset is provided to ease understanding but still, any
-trace with length greater than 4 is unlookable
+trace with length greater than 4 is very hard to understand.
 
-Unfortunately, the visualizaton can be confusing because nodes that represent
+Additionally,
+unfortunately the visualizaton can be confusing because nodes that represent
 `GenerationalReference` that are created later in time can appear to be
 connected. For example, the following is the initial state of a valid instance:
 

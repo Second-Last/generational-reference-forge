@@ -1,6 +1,6 @@
 #lang forge
 
-option run_sterling off
+option run_sterling on
 
 abstract sig Bool {}
 one sig True, False extends Bool {}

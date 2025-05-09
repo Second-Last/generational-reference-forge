@@ -35,30 +35,48 @@
     {
       "targets": [
         {
-          "type": "Int"
+          "type": "State"
+        }
+      ],
+      "shape": {
+        "shape": "rectangle",
+        "width": 100,
+        "height": 100
+      }
+    },
+    {
+      "targets": [
+        {
+          "type": "Owner"
         }
       ],
       "styles": {
         "node": {
-          "stroke": "#ffffff"
-        },
-        "label": {
-          "fill": "#ffffff"
+          "stroke": "#ff0040"
         }
       }
     },
     {
       "targets": [
         {
-          "type": "Bool"
+          "type": "Allocation"
         }
       ],
       "styles": {
         "node": {
-          "stroke": "#ffffff"
-        },
-        "label": {
-          "fill": "#ffffff"
+          "stroke": "#291af4"
+        }
+      }
+    },
+    {
+      "targets": [
+        {
+          "type": "GenerationalReference"
+        }
+      ],
+      "styles": {
+        "node": {
+          "stroke": "#11fa00"
         }
       }
     }
@@ -102,6 +120,13 @@
         }
       ],
       "asAttribute": true
+    },
+    {
+      "targets": [
+        {
+          "relation": "State<:liveOwners"
+        }
+      ]
     },
     {
       "targets": [
