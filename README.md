@@ -15,7 +15,7 @@ Before any dereference, the system checks if the reference's remembered
 generation matches the allocation's current generation. This prevents accessing
 freed or reused memory, as freeing increments the generation counter.
 
-The goal was to formally verify that GR prevents common memory safety bugs, as
+The goal is to formally verify that GR prevents common memory safety bugs, as
 its conceptual elegance and ease of implementation, when combined with the
 effectiveness it claims, seem too good to be true.
 
@@ -26,13 +26,20 @@ owned by a single struct, array, or stack frame. Under this condition, we're
 guaranteed that as long as the owner is still in scope/not freed, accessing
 data in the memory region that this owner owns doesn't need any checks. The most
 common usage of this optimization is to remove checks for borrowed/moved
-function arguments and for variables that was literally just allocated.
+function arguments (and anything on the stack frame)
+and for variables that were literally just allocated.
 ```cpp
 void hello(Spaceship& ship) {
   // If we can verify at the call-site
   // of `hello` that `ship` is borrowed or moved, then it's definitely safe to
   // dereference `ship` without checking for safety!
   cout << ship.fuel << endl;
+
+  Spaceship ship2;
+  // Accesing the `model` field requires a dereference since `ship2` is
+  // internally a pointer to a memory location on the stack frame. However, it
+  // should also be obvious that it's definitely safe to access `model`.
+  cout << ship2.model << endl;
 
   Point* pt = new Point;
   // Clearly we don't need to check if it's safe to dereference `pt` here!
