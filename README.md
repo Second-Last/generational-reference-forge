@@ -1,5 +1,9 @@
 # Memory Safety Guarantees of Generational References modeled in Forge
 
+[Link](https://second-last.github.io/generational-reference-forge) to the
+presentation slides. The explanation of GR is done mostly verbally so the below
+article on GR may serve to aid understanding of the slides.
+
 This project models Generational References (GR), a memory management
 technique designed to ensure memory safety without the overhead of garbage
 collection or the complexity of ownership systems like Rust's borrow checker.
